@@ -14,16 +14,19 @@ sign(ShaBits, Key, Data) ->
     public_key:sign(Data, algo(ShaBits), ECPrivateKey).
 
 verify(ShaBits, Key, Data, Signature) ->
-    [SPKI] = public_key:pem_decode(Key),
-    #'SubjectPublicKeyInfo'{algorithm = Der} = SPKI,
-    RealSPKI = public_key:der_decode('SubjectPublicKeyInfo', Der),
+    [#'SubjectPublicKeyInfo'{algorithm = Der}] = public_key:pem_decode(Key),
     #'SubjectPublicKeyInfo'{
         subjectPublicKey = Octets,
         algorithm = #'AlgorithmIdentifier'{parameters = Params}
-    } = RealSPKI,
+    } = public_key:der_decode('SubjectPublicKeyInfo', Der),
     ECPoint = #'ECPoint'{point = Octets},
-    EcpkParametersPem = {'EcpkParameters', Params, not_encrypted},
-    ECParams = public_key:pem_entry_decode(EcpkParametersPem),
+    ECParams =
+        case is_binary(Params) of
+            true ->
+                public_key:pem_entry_decode({'EcpkParameters', Params, not_encrypted});
+            false ->
+                Params
+        end,
     ECPublicKey = {ECPoint, ECParams},
     public_key:verify(Data, algo(ShaBits), Signature, ECPublicKey).
 
